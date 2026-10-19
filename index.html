@@ -1,0 +1,714 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PUZZLE BOX--MIND GAME</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00ff87;
+            --secondary: #00f3ff;
+            --danger: #ff0055;
+            --bg-dark: #0a0a0f;
+            --glass: rgba(20, 25, 35, 0.85);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; user-select: none; }
+        
+        body {
+            background-color: var(--bg-dark);
+            background-image: radial-gradient(circle at 50% 0%, #1a233a 0%, #0a0a0f 80%);
+            min-height: 100vh; display: flex; justify-content: center; align-items: center;
+            color: white; overflow: hidden;
+        }
+
+        /* Main Container */
+        #app {
+            width: 900px; height: 650px;
+            background: var(--glass);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px; position: relative;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255,255,255,0.05);
+            overflow: hidden;
+        }
+
+        canvas#particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 99; }
+
+        /* Screens */
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 10; transition: opacity 0.3s ease;
+            padding: 30px; text-align: center;
+        }
+        .hidden { opacity: 0; pointer-events: none; z-index: -1; }
+        .overlay { background: rgba(10, 10, 15, 0.95); }
+
+        /* Typography */
+        h1.logo {
+            font-family: 'Orbitron', sans-serif; font-size: 3.5rem; font-weight: 900;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 5px; letter-spacing: 2px;
+        }
+        h2 { font-family: 'Orbitron', sans-serif; font-size: 2rem; color: var(--secondary); margin-bottom: 20px; }
+        p { color: #8b9bb4; font-size: 1.1rem; margin-bottom: 20px; }
+
+        /* Buttons */
+        .btn {
+            padding: 14px 40px; font-size: 1.1rem; font-family: 'Orbitron', sans-serif; font-weight: bold;
+            border: none; border-radius: 10px; cursor: pointer; transition: all 0.2s;
+            background: linear-gradient(45deg, var(--primary), var(--secondary)); color: #000;
+            box-shadow: 0 5px 15px rgba(0, 255, 135, 0.3); text-transform: uppercase; margin: 10px;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0, 255, 135, 0.5); }
+        .btn:active { transform: translateY(1px); }
+        .btn-outline { background: transparent; border: 2px solid var(--secondary); color: var(--secondary); box-shadow: none; }
+        .btn-outline:hover { background: rgba(0, 243, 255, 0.1); }
+        .btn-danger { background: linear-gradient(45deg, #ff0055, #ff4b4b); color: white; box-shadow: 0 5px 15px rgba(255, 0, 85, 0.3); }
+
+        /* HUD */
+        .hud { position: absolute; top: 0; left: 0; width: 100%; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; z-index: 5; pointer-events: none; }
+        .hud > * { pointer-events: auto; }
+        .hud-box { background: rgba(0,0,0,0.6); padding: 8px 20px; border-radius: 30px; font-family: 'Orbitron', sans-serif; font-weight: bold; border: 1px solid rgba(255,255,255,0.1); }
+        .hud-level { color: var(--primary); }
+        .hud-lives { color: var(--danger); letter-spacing: 3px; }
+        .hud-score { color: var(--secondary); }
+
+        /* Grid System - FIXED */
+        #grid { display: grid; gap: 15px; margin: auto; padding: 20px; }
+        .grid-3 { grid-template-columns: repeat(3, 100px); grid-template-rows: repeat(3, 100px); }
+        .grid-4 { grid-template-columns: repeat(4, 80px); grid-template-rows: repeat(4, 80px); }
+        .grid-5 { grid-template-columns: repeat(5, 70px); grid-template-rows: repeat(5, 70px); }
+
+        .tile {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px; cursor: pointer; transition: all 0.15s ease;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+        }
+        .tile:hover { border-color: rgba(255,255,255,0.3); }
+        
+        /* Tile States */
+        .tile.active {
+            background: var(--primary);
+            box-shadow: 0 0 30px var(--primary), inset 0 0 10px #fff;
+            border-color: #fff; transform: scale(1.1); z-index: 2;
+        }
+        .tile.wrong {
+            background: var(--danger);
+            box-shadow: 0 0 30px var(--danger); border-color: #fff;
+        }
+
+        /* Game Status Text */
+        .status-text {
+            font-family: 'Orbitron', sans-serif; font-size: 1.5rem; font-weight: bold;
+            height: 40px; transition: color 0.3s; margin-bottom: 10px;
+        }
+        .status-watch { color: #ffcc00; text-shadow: 0 0 10px #ffcc00; }
+        .status-play { color: var(--primary); text-shadow: 0 0 10px var(--primary); }
+
+        /* Animations */
+        .shake { animation: shake 0.4s; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            50% { transform: translateX(10px); }
+            75% { transform: translateX(-10px); }
+        }
+
+        /* Instructions & Settings Box */
+        .content-box {
+            background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 15px; padding: 30px; text-align: left; 
+            width: 100%; max-width: 600px; max-height: 400px; overflow-y: auto;
+            line-height: 1.6; color: #ccc; margin-bottom: 20px;
+        }
+        .content-box::-webkit-scrollbar { width: 8px; }
+        .content-box::-webkit-scrollbar-thumb { background: var(--secondary); border-radius: 4px; }
+        
+        .content-box h3 { color: var(--secondary); margin-bottom: 15px; font-family: Orbitron; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        .content-box ul { list-style: none; padding-left: 0; }
+        .content-box li { margin-bottom: 15px; display: flex; gap: 10px; align-items: flex-start; }
+        .content-box .icon { font-size: 1.5rem; }
+        .content-box span.highlight { color: var(--primary); font-weight: bold; }
+        .content-box span.danger { color: var(--danger); font-weight: bold; }
+
+        /* Settings */
+        .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: rgba(255,255,255,0.02); padding: 15px; border-radius: 10px; }
+        .setting-row label { font-weight: 600; color: #fff; }
+        input[type=range] { -webkit-appearance: none; width: 200px; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: var(--primary); cursor: pointer; margin-top: -8px; box-shadow: 0 0 10px var(--primary); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: rgba(255,255,255,0.2); border-radius: 2px; }
+        
+        .theme-selector { display: flex; gap: 10px; }
+        .theme-btn { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+        .theme-btn.active { border-color: #fff; transform: scale(1.1); }
+
+        .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(24px); }
+
+        @media (max-width: 950px) {
+            #app { width: 100vw; height: 100vh; border-radius: 0; }
+            .grid-3 { grid-template-columns: repeat(3, 85px); grid-template-rows: repeat(3, 85px); }
+            .grid-4 { grid-template-columns: repeat(4, 70px); grid-template-rows: repeat(4, 70px); }
+            .grid-5 { grid-template-columns: repeat(5, 55px); grid-template-rows: repeat(5, 55px); }
+            h1.logo { font-size: 2.5rem; }
+            .content-box { max-height: 350px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <canvas id="particles"></canvas>
+
+        <div class="hud hidden" id="hud">
+            <div class="hud-box hud-level">LEVEL: <span id="ui-level">1</span>/10</div>
+            <div class="hud-box hud-score">SCORE: <span id="ui-score">0</span></div>
+            <div class="hud-box hud-lives" id="ui-lives">❤️❤️❤️</div>
+        </div>
+
+        <!-- 1. Main Menu -->
+        <div class="screen" id="screen-menu">
+            <h1 class="logo">MIND MATRIX</h1>
+            <p>Test Your Memory. Break Your Limits.</p>
+            
+            <div style="background: rgba(0,0,0,0.5); padding: 10px 30px; border-radius: 20px; margin-bottom: 30px; border: 1px solid var(--secondary);">
+                <span style="color:var(--secondary);">HIGHEST SCORE: </span> <span id="ui-highscore" style="font-family:Orbitron; font-weight:bold; font-size:1.2rem;">0</span>
+            </div>
+
+            <button class="btn" onclick="startGame()">START GAME</button>
+            <div style="display:flex; gap: 10px;">
+                <button class="btn btn-outline" style="padding: 12px 25px;" onclick="switchScreen('screen-howto')">HOW TO PLAY</button>
+                <button class="btn btn-outline" style="padding: 12px 25px;" onclick="switchScreen('screen-settings')">⚙️ SETTINGS</button>
+            </div>
+        </div>
+
+        <!-- 2. How To Play -->
+        <div class="screen overlay hidden" id="screen-howto">
+            <h2>HOW TO PLAY</h2>
+            <div class="content-box">
+                <h3>Step-by-Step Guide</h3>
+                <ul>
+                    <li>
+                        <span class="icon">👀</span>
+                        <div><b>1. Watch (Dekhein):</b> Grid ke kuch boxes <span class="highlight">Green</span> hokar ek sequence mein chamkenge. Unhe dhyaan se dekhein.</div>
+                    </li>
+                    <li>
+                        <span class="icon">🧠</span>
+                        <div><b>2. Memorize (Yaad Rakhein):</b> Un boxes ka order yaad rakhein.</div>
+                    </li>
+                    <li>
+                        <span class="icon">🖱️</span>
+                        <div><b>3. Repeat (Dohrayein):</b> Jab upar message mein <span class="highlight">"YOUR TURN!"</span> likha aaye, toh unhi boxes par <b>usi same order</b> mein click karein.</div>
+                    </li>
+                    <li>
+                        <span class="icon">❤️</span>
+                        <div><b>4. Survive (Bachein):</b> Aapke paas 3 Lives (Dil) hain. Galat box click karne par 1 life kam hogi. <span class="danger">(3 galtiyan = Game Over)</span>.</div>
+                    </li>
+                    <li>
+                        <span class="icon">🚀</span>
+                        <div><b>5. Level Up:</b> Aapko total 10 levels paar karne hain. Har level ke saath grid bada hoga (3x3 se 5x5 tak).</div>
+                    </li>
+                </ul>
+            </div>
+            <button class="btn" onclick="switchScreen('screen-menu')">GOT IT!</button>
+        </div>
+
+        <!-- 3. Settings -->
+        <div class="screen overlay hidden" id="screen-settings">
+            <h2>⚙️ SETTINGS</h2>
+            <div class="content-box" style="text-align: left;">
+                
+                <div class="setting-row">
+                    <label>Music Volume</label>
+                    <input type="range" id="set-bgm" min="0" max="100" value="50" oninput="updateBGM(this.value)">
+                </div>
+                
+                <div class="setting-row">
+                    <label>Sound Effects</label>
+                    <input type="range" id="set-sfx" min="0" max="100" value="50" oninput="updateSFX(this.value)">
+                </div>
+
+                <div class="setting-row">
+                    <label>Fast Mode (Hardcore) <br><span style="font-size:0.8rem; color:#888; font-weight:400;">Tiles flash faster</span></label>
+                    <label class="switch">
+                        <input type="checkbox" id="set-fast" onchange="toggleFastMode(this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="setting-row">
+                    <label>Theme Color</label>
+                    <div class="theme-selector">
+                        <div class="theme-btn active" style="background:#00ff87;" onclick="setTheme('#00ff87', '#00f3ff', this)"></div>
+                        <div class="theme-btn" style="background:#ff0055;" onclick="setTheme('#ff0055', '#ff8a00', this)"></div>
+                        <div class="theme-btn" style="background:#9d00ff;" onclick="setTheme('#9d00ff', '#00f3ff', this)"></div>
+                        <div class="theme-btn" style="background:#ffcc00;" onclick="setTheme('#ffcc00', '#ff8800', this)"></div>
+                    </div>
+                </div>
+
+                <div class="setting-row" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 20px;">
+                    <label>Reset High Score</label>
+                    <button class="btn btn-danger" style="padding: 8px 20px; margin:0; font-size: 0.9rem;" onclick="resetData()">RESET</button>
+                </div>
+            </div>
+            <button class="btn" onclick="switchScreen('screen-menu')">BACK TO MENU</button>
+        </div>
+
+        <!-- 4. Level Intro -->
+        <div class="screen overlay hidden" id="screen-intro">
+            <h1 class="logo" id="intro-level" style="font-size: 4rem;">LEVEL 1</h1>
+            <p id="intro-grid" style="font-size: 1.5rem; color: white;">3x3 Grid</p>
+            <p style="color: var(--primary); animation: pulse 1s infinite alternate;">Get Ready...</p>
+        </div>
+
+        <!-- 5. Game Screen -->
+        <div class="screen hidden" id="screen-game">
+            <div class="status-text" id="game-status">Watch Carefully...</div>
+            <div id="grid" class="grid-3"></div>
+            <button class="btn btn-danger" style="margin-top: 20px; padding: 8px 20px; font-size: 0.9rem;" onclick="quitGame()">QUIT LEVEL</button>
+        </div>
+
+        <!-- 6. Level Complete -->
+        <div class="screen overlay hidden" id="screen-complete">
+            <h1 class="logo" style="font-size: 3rem;">PERFECT!</h1>
+            <p style="color: var(--primary); font-size: 1.5rem; font-weight: bold; margin-bottom: 30px;">Level Cleared</p>
+            <button class="btn" onclick="nextLevel()">NEXT LEVEL</button>
+        </div>
+
+        <!-- 7. Game Over -->
+        <div class="screen overlay hidden" id="screen-over">
+            <h1 class="logo" style="color: var(--danger); background: none; -webkit-text-fill-color: var(--danger);">GAME OVER</h1>
+            <p>Your memory let you down.</p>
+            <div style="background: rgba(0,0,0,0.5); padding: 10px 30px; border-radius: 20px; margin-bottom: 30px;">
+                <span style="color:var(--secondary);">FINAL SCORE: </span> <span id="over-score" style="font-family:Orbitron; font-weight:bold; font-size:1.2rem;">0</span>
+            </div>
+            <button class="btn" onclick="startGame()">TRY AGAIN</button>
+            <button class="btn btn-outline" onclick="switchScreen('screen-menu')">MAIN MENU</button>
+        </div>
+
+        <!-- 8. Victory -->
+        <div class="screen overlay hidden" id="screen-win">
+            <h1 class="logo" style="background: linear-gradient(to right, #f9d423, #ff4e50); -webkit-background-clip: text;">GRANDMASTER!</h1>
+            <p>You have conquered all 10 levels!</p>
+            <button class="btn" onclick="startGame()">PLAY AGAIN</button>
+            <button class="btn btn-outline" onclick="switchScreen('screen-menu')">MAIN MENU</button>
+        </div>
+
+    </div>
+
+<script>
+    // ==========================================
+    // 1. STATE & VARIABLES
+    // ==========================================
+    let currentLevel = 1;
+    let lives = 3;
+    let score = 0;
+    let sequence = [];
+    let userSequence = [];
+    let isPlayingSequence = false;
+    let canClick = false;
+    let seqIndex = 0; // Made sure it resets properly
+
+    // Settings
+    let bgmVol = parseInt(localStorage.getItem('mm_bgm')) || 50;
+    let sfxVol = parseInt(localStorage.getItem('mm_sfx')) || 50;
+    let isFastMode = localStorage.getItem('mm_fast') === 'true';
+    let currentTheme = localStorage.getItem('mm_theme') || '#00ff87';
+    let highScore = parseInt(localStorage.getItem('mm_highscore')) || 0;
+
+    // Audio Context
+    let audioCtx;
+    let bgmOsc = null;
+    let bgmGain = null;
+
+    const notes = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77, 1046.50, 1174.66, 1318.51, 1396.91, 1567.98, 1760.00, 1975.53, 2093.00, 2349.32, 2637.02, 2793.83];
+
+    // ==========================================
+    // 2. UI & SCREEN MANAGEMENT
+    // ==========================================
+    function switchScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+        const target = document.getElementById(screenId);
+        if (target) target.classList.remove('hidden');
+        
+        const hud = document.getElementById('hud');
+        if (screenId === 'screen-game' || screenId === 'screen-intro') {
+            hud.classList.remove('hidden');
+        } else {
+            hud.classList.add('hidden');
+        }
+    }
+
+    function updateHUD() {
+        document.getElementById('ui-level').innerText = currentLevel;
+        document.getElementById('ui-score').innerText = score;
+        document.getElementById('ui-lives').innerText = "❤️".repeat(lives) + "🖤".repeat(3 - lives);
+    }
+
+    document.getElementById('ui-highscore').innerText = highScore;
+    document.getElementById('set-bgm').value = bgmVol;
+    document.getElementById('set-sfx').value = sfxVol;
+    document.getElementById('set-fast').checked = isFastMode;
+    applyTheme(currentTheme);
+
+    // ==========================================
+    // 3. AUDIO ENGINE (Safe Mode)
+    // ==========================================
+    function initAudio() {
+        try {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        } catch(e) { console.log("Audio Init failed", e); }
+    }
+
+    function playSFX(freq, type, duration, volMultiplier=1) {
+        try {
+            if (!audioCtx || sfxVol === 0) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); 
+            gain.connect(audioCtx.destination);
+            
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            
+            const actualVol = (sfxVol / 100) * 0.2 * volMultiplier;
+            gain.gain.setValueAtTime(actualVol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            
+            osc.start(); 
+            osc.stop(audioCtx.currentTime + duration);
+        } catch(e) { console.log("SFX error", e); }
+    }
+
+    function startBGM() {
+        try {
+            if (!audioCtx || bgmOsc || bgmVol === 0) return;
+            bgmOsc = audioCtx.createOscillator();
+            bgmGain = audioCtx.createGain();
+            
+            bgmOsc.type = 'sine';
+            bgmOsc.frequency.setValueAtTime(110, audioCtx.currentTime);
+            
+            bgmGain.gain.setValueAtTime((bgmVol / 100) * 0.05, audioCtx.currentTime);
+            bgmOsc.connect(bgmGain);
+            bgmGain.connect(audioCtx.destination);
+            bgmOsc.start();
+        } catch(e) { console.log("BGM error", e); }
+    }
+
+    function stopBGM() {
+        if (bgmOsc) {
+            bgmOsc.stop();
+            bgmOsc.disconnect();
+            bgmOsc = null;
+        }
+    }
+
+    function updateBGM(val) {
+        bgmVol = parseInt(val);
+        localStorage.setItem('mm_bgm', bgmVol);
+        if (bgmGain) bgmGain.gain.setValueAtTime((bgmVol / 100) * 0.05, audioCtx.currentTime);
+        if (bgmVol > 0 && !bgmOsc) startBGM();
+        if (bgmVol === 0) stopBGM();
+    }
+
+    function updateSFX(val) {
+        sfxVol = parseInt(val);
+        localStorage.setItem('mm_sfx', sfxVol);
+        playSFX(600, 'sine', 0.1);
+    }
+
+    // ==========================================
+    // 4. SETTINGS
+    // ==========================================
+    function setTheme(primary, secondary, btnElement) {
+        currentTheme = primary;
+        localStorage.setItem('mm_theme', primary);
+        applyTheme(primary);
+        document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+        btnElement.classList.add('active');
+    }
+
+    function applyTheme(hex) {
+        document.documentElement.style.setProperty('--primary', hex);
+        const secMap = { '#00ff87': '#00f3ff', '#ff0055': '#ff8a00', '#9d00ff': '#00f3ff', '#ffcc00': '#ff8800' };
+        document.documentElement.style.setProperty('--secondary', secMap[hex] || '#00f3ff');
+    }
+
+    function toggleFastMode(checked) {
+        isFastMode = checked;
+        localStorage.setItem('mm_fast', checked);
+    }
+
+    function resetData() {
+        if(confirm("Are you sure you want to reset your High Score?")) {
+            localStorage.removeItem('mm_highscore');
+            highScore = 0;
+            document.getElementById('ui-highscore').innerText = highScore;
+            alert("High Score Reset!");
+        }
+    }
+
+    // ==========================================
+    // 5. GAME FLOW
+    // ==========================================
+    function startGame() {
+        initAudio();
+        if (!bgmOsc && bgmVol > 0) startBGM();
+        playSFX(500, 'square', 0.1);
+        
+        currentLevel = 1;
+        lives = 3;
+        score = 0;
+        startLevel();
+    }
+
+    function startLevel() {
+        updateHUD();
+        switchScreen('screen-intro');
+        
+        let gridSize = 3;
+        if (currentLevel > 3 && currentLevel <= 7) gridSize = 4;
+        if (currentLevel > 7) gridSize = 5;
+
+        document.getElementById('intro-level').innerText = `LEVEL ${currentLevel}`;
+        document.getElementById('intro-grid').innerText = `${gridSize}x${gridSize} Grid`;
+        
+        setTimeout(() => {
+            switchScreen('screen-game');
+            setupGrid(gridSize);
+            generateSequence(gridSize);
+            setTimeout(playSequence, 1000); 
+        }, 2000); 
+    }
+
+    function setupGrid(size) {
+        const grid = document.getElementById('grid');
+        grid.innerHTML = '';
+        grid.className = `grid-${size}`;
+        
+        const totalTiles = size * size;
+        for (let i = 0; i < totalTiles; i++) {
+            let tile = document.createElement('div');
+            tile.className = 'tile';
+            tile.dataset.index = i;
+            tile.onclick = () => handleTileClick(i, tile);
+            grid.appendChild(tile);
+        }
+    }
+
+    function generateSequence(gridSize) {
+        sequence = [];
+        let seqLength = currentLevel + 2; 
+        let maxTiles = gridSize * gridSize;
+        if (seqLength > maxTiles) seqLength = maxTiles;
+
+        for(let i=0; i<seqLength; i++) {
+            sequence.push(Math.floor(Math.random() * maxTiles));
+        }
+        
+        userSequence = [];
+        isPlayingSequence = true;
+        canClick = false;
+        seqIndex = 0; // Reset Sequence Index (IMPORTANT FIX)
+        
+        document.getElementById('game-status').innerText = "Watch Carefully...";
+        document.getElementById('game-status').className = "status-text status-watch";
+    }
+
+    function playSequence() {
+        if (seqIndex >= sequence.length) {
+            isPlayingSequence = false;
+            canClick = true;
+            seqIndex = 0;
+            document.getElementById('game-status').innerText = "YOUR TURN!";
+            document.getElementById('game-status').className = "status-text status-play";
+            playSFX(800, 'sine', 0.2);
+            return;
+        }
+
+        const tileIndex = sequence[seqIndex];
+        const tile = document.querySelector(`.tile[data-index="${tileIndex}"]`);
+        
+        if (tile) {
+            tile.classList.add('active');
+            playSFX(notes[tileIndex % notes.length], 'sine', 0.3);
+            
+            const flashTime = isFastMode ? 250 : 400;
+            const gapTime = isFastMode ? 100 : 200;
+
+            setTimeout(() => {
+                tile.classList.remove('active');
+                seqIndex++;
+                setTimeout(playSequence, gapTime);
+            }, flashTime);
+        } else {
+            seqIndex++;
+            playSequence();
+        }
+    }
+
+    function handleTileClick(index, tileElement) {
+        if (!canClick || isPlayingSequence) return;
+
+        tileElement.classList.add('active');
+        playSFX(notes[index % notes.length], 'triangle', 0.2);
+        setTimeout(() => tileElement.classList.remove('active'), 150);
+
+        userSequence.push(index);
+        let step = userSequence.length - 1;
+
+        if (userSequence[step] !== sequence[step]) {
+            canClick = false;
+            document.getElementById('game-status').innerText = "WRONG PATTERN!";
+            playSFX(150, 'sawtooth', 0.5);
+            
+            tileElement.classList.add('wrong');
+            document.getElementById('grid').classList.add('shake');
+            
+            setTimeout(() => {
+                tileElement.classList.remove('wrong');
+                document.getElementById('grid').classList.remove('shake');
+                
+                lives--;
+                updateHUD();
+                
+                if (lives <= 0) {
+                    gameOver();
+                } else {
+                    setupGrid(sequence.length > 9 ? 4 : 3); 
+                    generateSequence(Math.sqrt(document.querySelectorAll('.tile').length));
+                    setTimeout(playSequence, 1000);
+                }
+            }, 1000);
+            return;
+        }
+
+        if (userSequence.length === sequence.length) {
+            canClick = false;
+            document.getElementById('game-status').innerText = "PERFECT!";
+            playSFX(800, 'sine', 0.2);
+            setTimeout(() => playSFX(1200, 'sine', 0.3), 150);
+            
+            score += (currentLevel * 100);
+            updateHUD();
+            spawnParticles();
+            
+            setTimeout(() => {
+                switchScreen('screen-complete');
+            }, 1500);
+        }
+    }
+
+    function nextLevel() {
+        playSFX(600, 'square', 0.1);
+        currentLevel++;
+        
+        if (currentLevel > 10) {
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('mm_highscore', highScore);
+                document.getElementById('ui-highscore').innerText = highScore;
+            }
+            switchScreen('screen-win');
+        } else {
+            startLevel();
+        }
+    }
+
+    function gameOver() {
+        stopBGM();
+        document.getElementById('over-score').innerText = score;
+        
+        if (score > highScore) {
+            highScore = score;
+            localStorage.setItem('mm_highscore', highScore);
+            document.getElementById('ui-highscore').innerText = highScore;
+        }
+        
+        switchScreen('screen-over');
+    }
+
+    function quitGame() {
+        if(confirm("Are you sure you want to quit this level?")) {
+            switchScreen('screen-menu');
+            stopBGM();
+        }
+    }
+
+    // ==========================================
+    // 6. CONFETTI PARTICLES
+    // ==========================================
+    const canvas = document.getElementById('particles');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    let animationFrame;
+
+    function resizeCanvas() {
+        canvas.width = document.getElementById('app').clientWidth;
+        canvas.height = document.getElementById('app').clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function spawnParticles() {
+        const colors = [currentTheme, '#ffffff', '#00f3ff'];
+        for(let i=0; i<50; i++) {
+            particles.push({
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                vx: (Math.random() - 0.5) * 20,
+                vy: (Math.random() - 0.5) * 20 - 5,
+                life: 1,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                size: Math.random() * 6 + 2
+            });
+        }
+        if(!animationFrame) updateParticles();
+    }
+
+    function updateParticles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        let active = false;
+
+        for(let i=particles.length-1; i>=0; i--) {
+            let p = particles[i];
+            p.x += p.vx; p.y += p.vy; p.vy += 0.5; p.life -= 0.015;
+            
+            if(p.life <= 0) {
+                particles.splice(i,1);
+            } else {
+                active = true;
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.globalAlpha = 1;
+
+        if(active) {
+            animationFrame = requestAnimationFrame(updateParticles);
+        } else {
+            animationFrame = null;
+        }
+    }
+</script>
+</body>
+</html>
